@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Reader App</title>
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#0c111b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        :root { --bg: #0c111b; --card: #141b29; --fg: #e6ebf5; --acc: #4f8cff; --line: #243049; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--fg); height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* Login Screen */
+        #login-view { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 20px; text-align: center; }
+        #login-view.hidden { display: none; }
+        #login-view h2 { margin-bottom: 20px; font-weight: 600; }
+        input[type="password"] { width: 100%; max-width: 280px; padding: 16px; font-size: 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); text-align: center; letter-spacing: 4px; margin-bottom: 16px; outline: none; }
+        input[type="password"]:focus { border-color: var(--acc); }
+        button { width: 100%; max-width: 280px; padding: 16px; font-size: 16px; font-weight: 700; border-radius: 12px; border: none; background: var(--acc); color: #fff; cursor: pointer; }
+        #error-msg { color: #ff6b6b; margin-top: 12px; font-size: 14px; min-height: 20px; }
+
+        /* Reader View */
+        #app-view { display: none; width: 100%; height: 100%; }
+        #app-view.active { display: block; }
+        iframe { width: 100%; height: 100%; border: none; display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- Login Screen -->
+    <div id="login-view">
+        <h2>Enter PIN</h2>
+        <input type="password" id="pin-input" inputmode="numeric" placeholder="****" maxlength="10">
+        <button onclick="handleLogin()">Unlock</button>
+        <div id="error-msg"></div>
+    </div>
+
+    <!-- Reader App (Iframe) -->
+    <div id="app-view">
+        <iframe id="reader-frame" src="about:blank" allow="fullscreen"></iframe>
+    </div>
+
+    <script>
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwWhjldeWhxb2tavaprVPDJwjGV0Vro_oA2_7r6kNs5MejgNlyDm6sHtEbeZa5EAJQd4A/exec";
+        const SESSION_KEY = 'reader_session_active';
+
+        // Check session on load
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem(SESSION_KEY) === 'true') {
+                showApp();
+            } else {
+                document.getElementById('pin-input').focus();
+            }
+        });
+
+        async function handleLogin() {
+            const pin = document.getElementById('pin-input').value.trim();
+            const errEl = document.getElementById('error-msg');
+            if (!pin) { errEl.textContent = 'Please enter a PIN.'; return; }
+            
+            errEl.textContent = 'Checking...';
+            
+            // We use google.script.run via a hidden iframe bridge because this is a static site.
+            // The Apps Script web app must have a doGet that accepts ?pin=...
+            // However, to keep it secure and simple, we redirect the iframe with the PIN.
+            // The Apps Script will validate and then render the reader.
+            
+            // Strategy: Load the Apps Script URL with the PIN as a query param.
+            // If the PIN is wrong, the Apps Script will render an error page.
+            // We rely on the Apps Script to handle the session internally.
+            
+            // But for a PWA, it's better to validate first.
+            // Since we can't use google.script.run directly from GitHub Pages (CORS),
+            // we will use a hidden iframe to communicate or just load the URL.
+            
+            // Simplified approach: We load the Apps Script URL with the PIN.
+            // The Apps Script checks the PIN. If correct, it serves the Reader UI.
+            // If wrong, it serves an error message.
+            
+            // However, the user wants a smooth PWA experience.
+            // So we will do a "soft" check: we try to load the iframe.
+            // If the PIN is correct, the Apps Script serves the app.
+            // If wrong, it serves an error.
+            
+            // To prevent the user from seeing a broken iframe, we can ask the Apps Script
+            // to check the PIN via a fetch (but CORS will block it).
+            
+            // BEST APPROACH for GitHub Pages + Apps Script:
+            // Use the Apps Script URL directly as the PWA start_url, BUT you want the PIN screen.
+            // So we keep the PIN screen on GitHub Pages.
+            // We send the PIN to Apps Script via URL param.
+            
+            // We'll set the iframe src to the Apps Script URL with the PIN.
+            // The Apps Script will render the Reader if PIN is correct, or an error if not.
+            // We can't easily read the iframe content due to cross-origin.
+            
+            // Alternative: Store the PIN in localStorage and let the Apps Script check it on load.
+            // But the user wants "initial state pin login".
+            
+            // Let's use a two-step process:
+            // 1. We store the PIN temporarily.
+            // 2. We load the iframe.
+            // 3. The Apps Script checks the PIN from the URL.
+            // 4. If correct, it renders the app.
+            // 5. If wrong, we need to know. We can use postMessage.
+            
+            // For simplicity in this code: We just load the iframe with the PIN.
+            // If the PIN is wrong, the Apps Script will show an error.
+            // The user can go back and try again.
+            // To improve: We can have the Apps Script send a postMessage to the parent.
+            
+            // Let's implement a simple postMessage handshake.
+            
+            // Set a timeout to check if login failed (if no message received).
+            let loginSuccess = false;
+            
+            window.addEventListener('message', function(event) {
+                if (event.data === 'login_success') {
+                    loginSuccess = true;
+                    localStorage.setItem(SESSION_KEY, 'true');
+                    showApp();
+                } else if (event.data === 'login_failed') {
+                    errEl.textContent = 'Invalid PIN. Try again.';
+                    document.getElementById('pin-input').value = '';
+                    document.getElementById('app-view').classList.remove('active');
+                    document.getElementById('login-view').classList.remove('hidden');
+                }
+            });
+            
+            // Load the iframe with the PIN
+            const frame = document.getElementById('reader-frame');
+            frame.src = APPS_SCRIPT_URL + '?pin=' + encodeURIComponent(pin);
+            
+            // Show the app view (iframe will load)
+            // We don't hide login yet, we wait for postMessage.
+            // But the iframe will be visible behind the login screen if we don't hide it.
+            // So we hide login and show iframe, but if login fails, we revert.
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('app-view').classList.add('active');
+            
+            // If no message in 5 seconds, assume failure (or slow network)
+            setTimeout(() => {
+                if (!loginSuccess) {
+                    // Check if iframe is loaded but maybe no postMessage.
+                    // We can't inspect cross-origin.
+                    // For now, we rely on the Apps Script to send postMessage.
+                }
+            }, 5000);
+        }
+        
+        function showApp() {
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('app-view').classList.add('active');
+            const frame = document.getElementById('reader-frame');
+            // Load the app without PIN, it will check session internally
+            // Or we can just load it.
+            if (frame.src === 'about:blank' || frame.src === '') {
+                frame.src = APPS_SCRIPT_URL;
+            }
+        }
+        
+        // Logout function (to be called from the Apps Script via postMessage)
+        window.addEventListener('message', function(event) {
+            if (event.data === 'logout') {
+                localStorage.removeItem(SESSION_KEY);
+                document.getElementById('login-view').classList.remove('hidden');
+                document.getElementById('app-view').classList.remove('active');
+                document.getElementById('pin-input').value = '';
+                document.getElementById('reader-frame').src = 'about:blank';
+            }
+        });
+    </script>
+</body>
+</html>
