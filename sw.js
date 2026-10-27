@@ -1,4 +1,4 @@
-const CACHE_NAME = 'reader-pwa-v3'; // BUMPED TO V3
+const CACHE_NAME = 'reader-pwa-v4'; // BUMPED TO V4 TO CLEAR OLD FAVICON CACHE
 const ASSETS = [
   './', 
   './index.html', 
@@ -21,8 +21,10 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  if (url.origin !== location.origin || e.request.method !== 'GET') return;
+  // Don't cache Apps Script requests
+  if (url.origin === 'https://script.google.com') return;
   
+  // Network First for everything else
   e.respondWith(
     fetch(e.request).then(res => {
       const clone = res.clone();
