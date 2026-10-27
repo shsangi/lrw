@@ -13,7 +13,6 @@
         * { box-sizing: border-box; }
         body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--fg); height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* Login Screen */
         #login-view { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 20px; text-align: center; }
         #login-view.hidden { display: none; }
         #login-view h2 { margin-bottom: 20px; font-weight: 600; }
@@ -22,7 +21,6 @@
         button { width: 100%; max-width: 280px; padding: 16px; font-size: 16px; font-weight: 700; border-radius: 12px; border: none; background: var(--acc); color: #fff; cursor: pointer; }
         #error-msg { color: #ff6b6b; margin-top: 12px; font-size: 14px; min-height: 20px; }
 
-        /* Reader View */
         #app-view { display: none; width: 100%; height: 100%; }
         #app-view.active { display: block; }
         iframe { width: 100%; height: 100%; border: none; display: block; }
@@ -30,7 +28,6 @@
 </head>
 <body>
 
-    <!-- Login Screen -->
     <div id="login-view">
         <h2>Enter PIN</h2>
         <input type="password" id="pin-input" inputmode="numeric" placeholder="****" maxlength="10">
@@ -38,17 +35,14 @@
         <div id="error-msg"></div>
     </div>
 
-    <!-- Reader App (Iframe) -->
     <div id="app-view">
         <iframe id="reader-frame" src="about:blank" allow="fullscreen"></iframe>
     </div>
 
     <script>
-        // YOUR APPS SCRIPT URL
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwWhjldeWhxb2tavaprVPDJwjGV0Vro_oA2_7r6kNs5MejgNlyDm6sHtEbeZa5EAJQd4A/exec";
         const SESSION_KEY = 'reader_session_active';
 
-        // Check session on load
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem(SESSION_KEY) === 'true') {
                 showApp();
@@ -61,14 +55,9 @@
             const pin = document.getElementById('pin-input').value.trim();
             const errEl = document.getElementById('error-msg');
             if (!pin) { errEl.textContent = 'Please enter a PIN.'; return; }
-            
             errEl.textContent = 'Checking...';
-            
-            // Load the iframe with the PIN
             const frame = document.getElementById('reader-frame');
             frame.src = APPS_SCRIPT_URL + '?pin=' + encodeURIComponent(pin);
-            
-            // Temporarily show the app view while checking
             document.getElementById('login-view').classList.add('hidden');
             document.getElementById('app-view').classList.add('active');
         }
@@ -77,13 +66,11 @@
             document.getElementById('login-view').classList.add('hidden');
             document.getElementById('app-view').classList.add('active');
             const frame = document.getElementById('reader-frame');
-            // Load without PIN, relies on Apps Script session fallback
             if (frame.src === 'about:blank' || frame.src === '') {
                 frame.src = APPS_SCRIPT_URL;
             }
         }
         
-        // Listen for messages from Apps Script
         window.addEventListener('message', function(event) {
             if (event.data === 'login_success') {
                 localStorage.setItem(SESSION_KEY, 'true');
@@ -97,10 +84,10 @@
                 document.getElementById('reader-frame').src = 'about:blank';
             }
             else if (event.data === 'logout') {
-                // 1. Clear session
+                // Clear session
                 localStorage.removeItem(SESSION_KEY);
                 
-                // 2. Destroy iframe completely to stop audio/video
+                // Destroy iframe
                 const oldFrame = document.getElementById('reader-frame');
                 const newFrame = document.createElement('iframe');
                 newFrame.id = 'reader-frame';
@@ -108,7 +95,7 @@
                 newFrame.allow = 'fullscreen';
                 oldFrame.parentNode.replaceChild(newFrame, oldFrame);
 
-                // 3. Show Login Screen
+                // Show Login
                 document.getElementById('app-view').classList.remove('active');
                 document.getElementById('login-view').classList.remove('hidden');
                 document.getElementById('pin-input').value = '';
