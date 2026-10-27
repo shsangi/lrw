@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Reader App</title>
     <link rel="manifest" href="./manifest.json">
+    
+    <!-- FIX 2: Proper Icons for PWA and iOS -->
+    <link rel="icon" type="image/png" href="./icon-192.png">
+    <link rel="apple-touch-icon" href="./icon-180.png">
+    
     <meta name="theme-color" content="#0c111b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -42,65 +47,66 @@
     <script>
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwWhjldeWhxb2tavaprVPDJwjGV0Vro_oA2_7r6kNs5MejgNlyDm6sHtEbeZa5EAJQd4A/exec";
         const SESSION_KEY = 'reader_session_active';
+        const $ = id => document.getElementById(id);
+        let loginTimer;
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+
+        // FIX: Verify the message comes from Google
+        const trusted = o => o === 'https://script.google.com' || o.endsWith('.googleusercontent.com');
 
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem(SESSION_KEY) === 'true') {
-                showApp();
+                showApp();   // Auto-login
             } else {
-                document.getElementById('pin-input').focus();
+                $('pin-input').focus();
             }
         });
 
         function handleLogin() {
-            const pin = document.getElementById('pin-input').value.trim();
-            const errEl = document.getElementById('error-msg');
-            if (!pin) { errEl.textContent = 'Please enter a PIN.'; return; }
-            errEl.textContent = 'Checking...';
-            const frame = document.getElementById('reader-frame');
-            frame.src = APPS_SCRIPT_URL + '?pin=' + encodeURIComponent(pin);
-            document.getElementById('login-view').classList.add('hidden');
-            document.getElementById('app-view').classList.add('active');
+            const pin = $('pin-input').value.trim();
+            if (!pin) { $('error-msg').textContent = 'Please enter a PIN.'; return; }
+            $('error-msg').textContent = 'Checking...';
+            $('reader-frame').src = APPS_SCRIPT_URL + '?pin=' + encodeURIComponent(pin);
+            clearTimeout(loginTimer);
+            loginTimer = setTimeout(() => $('error-msg').textContent = 'No response. Try again.', 20000);
         }
-        
-        function showApp() {
-            document.getElementById('login-view').classList.add('hidden');
-            document.getElementById('app-view').classList.add('active');
-            const frame = document.getElementById('reader-frame');
-            if (frame.src === 'about:blank' || frame.src === '') {
-                frame.src = APPS_SCRIPT_URL;
-            }
-        }
-        
-        window.addEventListener('message', function(event) {
-            if (event.data === 'login_success') {
-                localStorage.setItem(SESSION_KEY, 'true');
-                showApp();
-            } 
-            else if (event.data === 'login_failed') {
-                document.getElementById('error-msg').textContent = 'Invalid PIN. Try again.';
-                document.getElementById('pin-input').value = '';
-                document.getElementById('app-view').classList.remove('active');
-                document.getElementById('login-view').classList.remove('hidden');
-                document.getElementById('reader-frame').src = 'about:blank';
-            }
-            else if (event.data === 'logout') {
-                // Clear session
-                localStorage.removeItem(SESSION_KEY);
-                
-                // Destroy iframe
-                const oldFrame = document.getElementById('reader-frame');
-                const newFrame = document.createElement('iframe');
-                newFrame.id = 'reader-frame';
-                newFrame.src = 'about:blank';
-                newFrame.allow = 'fullscreen';
-                oldFrame.parentNode.replaceChild(newFrame, oldFrame);
 
-                // Show Login
-                document.getElementById('app-view').classList.remove('active');
-                document.getElementById('login-view').classList.remove('hidden');
-                document.getElementById('pin-input').value = '';
-                document.getElementById('error-msg').textContent = '';
-                document.getElementById('pin-input').focus();
+        function showApp() {
+            $('login-view').classList.add('hidden');
+            $('app-view').classList.add('active');
+            const f = $('reader-frame');
+            if (f.src === 'about:blank' || !f.src) f.src = APPS_SCRIPT_URL;
+        }
+
+        function showLogin(msg) {
+            localStorage.removeItem(SESSION_KEY);
+            // Completely destroy the iframe to stop audio/reading
+            const old = $('reader-frame'), nf = document.createElement('iframe');
+            nf.id = 'reader-frame'; nf.src = 'about:blank'; nf.allow = 'fullscreen';
+            old.replaceWith(nf);
+            
+            $('app-view').classList.remove('active');
+            $('login-view').classList.remove('hidden');
+            $('pin-input').value = '';
+            $('error-msg').textContent = msg || '';
+            $('pin-input').focus();
+        }
+
+        window.addEventListener('message', e => {
+            if (!trusted(e.origin)) return;
+            if (e.data === 'login_success') { 
+                clearTimeout(loginTimer); 
+                localStorage.setItem(SESSION_KEY, 'true'); 
+                showApp(); 
+            }
+            else if (e.data === 'login_failed') { 
+                clearTimeout(loginTimer); 
+                showLogin('Invalid PIN. Try again.'); 
+            }
+            else if (e.data === 'logout') {
+                showLogin('');
             }
         });
     </script>
