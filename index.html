@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Reader App</title>
     <link rel="manifest" href="./manifest.json">
-    
-    <!-- FIX 2: Proper Icons for PWA and iOS -->
     <link rel="icon" type="image/png" href="./icon-192.png">
     <link rel="apple-touch-icon" href="./icon-180.png">
-    
     <meta name="theme-color" content="#0c111b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -50,15 +47,13 @@
         const $ = id => document.getElementById(id);
         let loginTimer;
 
-        // Register Service Worker
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 
-        // FIX: Verify the message comes from Google
         const trusted = o => o === 'https://script.google.com' || o.endsWith('.googleusercontent.com');
 
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem(SESSION_KEY) === 'true') {
-                showApp();   // Auto-login
+                showApp();   
             } else {
                 $('pin-input').focus();
             }
@@ -70,7 +65,7 @@
             $('error-msg').textContent = 'Checking...';
             $('reader-frame').src = APPS_SCRIPT_URL + '?pin=' + encodeURIComponent(pin);
             clearTimeout(loginTimer);
-            loginTimer = setTimeout(() => $('error-msg').textContent = 'No response. Try again.', 20000);
+            loginTimer = setTimeout(() => $('error-msg').textContent = 'No response. Check connection.', 15000);
         }
 
         function showApp() {
@@ -82,7 +77,6 @@
 
         function showLogin(msg) {
             localStorage.removeItem(SESSION_KEY);
-            // Completely destroy the iframe to stop audio/reading
             const old = $('reader-frame'), nf = document.createElement('iframe');
             nf.id = 'reader-frame'; nf.src = 'about:blank'; nf.allow = 'fullscreen';
             old.replaceWith(nf);
