@@ -1,0 +1,22 @@
+{
+  "name": "Reader App",
+  "short_name": "Reader",
+  "description": "My Reading Application",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0c111b",
+  "theme_color": "#0c111b",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./reader_logo.jpeg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "./reader_logo.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
