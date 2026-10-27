@@ -18,27 +18,106 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <style>
-        /* ... KEEP YOUR EXISTING CSS HERE ... */
-        :root { --bg: #0c111b; --card: #141b29; --fg: #e6ebf5; --acc: #4f8cff; --line: #243049; }
-        [data-theme="light"] { --bg: #f4f7f6; --card: #ffffff; --fg: #1a202c; --acc: #3182ce; --line: #cbd5e0; }
+        /* THEME VARIABLES */
+        :root { 
+            --bg: #0c111b; --card: #141b29; --fg: #e6ebf5; --acc: #4f8cff; --line: #243049; --input-bg: #141b29;
+        }
+        [data-theme="light"] { 
+            --bg: #f4f7f6; --card: #ffffff; --fg: #1a202c; --acc: #3182ce; --line: #cbd5e0; --input-bg: #edf2f7;
+        }
+
         * { box-sizing: border-box; }
-        body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--fg); height: 100dvh; overflow: hidden; display: flex; flex-direction: column; transition: background 0.3s, color 0.3s; }
+        body { 
+            margin: 0; 
+            font-family: system-ui, -apple-system, sans-serif; 
+            background: var(--bg); 
+            color: var(--fg); 
+            height: 100dvh; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            transition: background 0.3s, color 0.3s; 
+        }
         
-        #login-view { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 20px; text-align: center; position: relative; }
+        /* Login Screen */
+        #login-view { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100%; 
+            padding: 20px; 
+            text-align: center; 
+            position: relative; 
+        }
         #login-view.hidden { display: none; }
         #login-view h2 { margin-bottom: 20px; font-weight: 600; }
-        input[type="password"] { width: 100%; max-width: 280px; padding: 16px; font-size: 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); text-align: center; letter-spacing: 4px; margin-bottom: 16px; outline: none; transition: all 0.3s; }
+        
+        input[type="password"] { 
+            width: 100%; 
+            max-width: 280px; 
+            padding: 16px; 
+            font-size: 18px; 
+            border-radius: 12px; 
+            border: 1px solid var(--line); 
+            background: var(--input-bg); 
+            color: var(--fg); 
+            text-align: center; 
+            letter-spacing: 4px; 
+            margin-bottom: 16px; 
+            outline: none; 
+            transition: all 0.3s; 
+        }
         input[type="password"]:focus { border-color: var(--acc); }
-        button { width: 100%; max-width: 280px; padding: 16px; font-size: 16px; font-weight: 700; border-radius: 12px; border: none; background: var(--acc); color: #fff; cursor: pointer; }
-        #error-msg { color: #e53e3e; margin-top: 12px; font-size: 14px; min-height: 20px; }
-        #theme-toggle { position: absolute; top: 20px; right: 20px; width: 44px; height: 44px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); color: var(--fg); display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; max-width: none; padding: 0; }
+        
+        button { 
+            width: 100%; 
+            max-width: 280px; 
+            padding: 16px; 
+            font-size: 16px; 
+            font-weight: 700; 
+            border-radius: 12px; 
+            border: none; 
+            background: var(--acc); 
+            color: #fff; 
+            cursor: pointer; 
+        }
+        
+        #error-msg { 
+            color: #e53e3e; 
+            margin-top: 12px; 
+            font-size: 14px; 
+            min-height: 20px; 
+        }
+
+        /* Theme Toggle Button */
+        #theme-toggle { 
+            position: absolute; 
+            top: 20px; 
+            right: 20px; 
+            width: 44px; 
+            height: 44px; 
+            border-radius: 50%; 
+            background: var(--card); 
+            border: 1px solid var(--line); 
+            color: var(--fg); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 20px; 
+            cursor: pointer; 
+            max-width: none; 
+            padding: 0; 
+        }
+
+        /* Reader View */
         #app-view { display: none; width: 100%; height: 100%; }
         #app-view.active { display: block; }
         iframe { width: 100%; height: 100%; border: none; display: block; }
     </style>
 </head>
 <body>
-    <!-- KEEP YOUR EXISTING BODY HTML AND SCRIPTS HERE -->
+
     <div id="login-view">
         <button id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle Theme">🌙</button>
         <h2>Enter PIN</h2>
@@ -46,9 +125,106 @@
         <button onclick="handleLogin()">Unlock</button>
         <div id="error-msg"></div>
     </div>
+
     <div id="app-view">
         <iframe id="reader-frame" src="about:blank" allow="fullscreen"></iframe>
     </div>
-    <!-- YOUR SCRIPT TAG GOES HERE -->
+
+    <script>
+        // YOUR APPS SCRIPT URL
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwWhjldeWhxb2tavaprVPDJwjGV0Vro_oA2_7r6kNs5MejgNlyDm6sHtEbeZa5EAJQd4A/exec";
+        const SESSION_KEY = 'reader_session_active';
+        const THEME_KEY = 'reader_theme';
+        const $ = id => document.getElementById(id);
+        let loginTimer;
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+
+        // THEME LOGIC
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            $('theme-toggle').textContent = theme === 'light' ? '☀️' : '🌙';
+            localStorage.setItem(THEME_KEY, theme);
+            
+            // Tell the iframe to change theme if it's loaded
+            const frame = $('reader-frame');
+            if (frame && frame.contentWindow) {
+                frame.contentWindow.postMessage({ action: 'setTheme', theme: theme }, '*');
+            }
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            applyTheme(current === 'light' ? 'dark' : 'light');
+        }
+
+        // Initialize theme on load
+        const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+        applyTheme(savedTheme);
+
+        // Security check: Only accept messages from Google Apps Script
+        const trusted = o => o === 'https://script.google.com' || o.endsWith('.googleusercontent.com');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem(SESSION_KEY) === 'true') {
+                showApp();   
+            } else {
+                $('pin-input').focus();
+            }
+        });
+
+        function handleLogin() {
+            const pin = $('pin-input').value.trim();
+            if (!pin) { $('error-msg').textContent = 'Please enter a PIN.'; return; }
+            $('error-msg').textContent = 'Checking...';
+            $('reader-frame').src = APPS_SCRIPT_URL + '?pin=' + encodeURIComponent(pin);
+            clearTimeout(loginTimer);
+            loginTimer = setTimeout(() => $('error-msg').textContent = 'No response. Check connection.', 15000);
+        }
+
+        function showApp() {
+            $('login-view').classList.add('hidden');
+            $('app-view').classList.add('active');
+            const f = $('reader-frame');
+            if (f.src === 'about:blank' || !f.src) f.src = APPS_SCRIPT_URL;
+        }
+
+        function showLogin(msg) {
+            localStorage.removeItem(SESSION_KEY);
+            // Destroy iframe to stop any audio/video
+            const old = $('reader-frame'), nf = document.createElement('iframe');
+            nf.id = 'reader-frame'; nf.src = 'about:blank'; nf.allow = 'fullscreen';
+            old.replaceWith(nf);
+            
+            $('app-view').classList.remove('active');
+            $('login-view').classList.remove('hidden');
+            $('pin-input').value = '';
+            $('error-msg').textContent = msg || '';
+            $('pin-input').focus();
+        }
+
+        // Listen for messages from Apps Script
+        window.addEventListener('message', e => {
+            if (!trusted(e.origin)) return;
+            
+            if (e.data === 'login_success') { 
+                clearTimeout(loginTimer); 
+                localStorage.setItem(SESSION_KEY, 'true'); 
+                showApp(); 
+            }
+            else if (e.data === 'login_failed') { 
+                clearTimeout(loginTimer); 
+                showLogin('Invalid PIN. Try again.'); 
+            }
+            else if (e.data === 'logout') {
+                showLogin('');
+            }
+            // Listen for theme changes from inside the iframe settings
+            else if (e.data.action === 'themeChanged') {
+                applyTheme(e.data.theme);
+            }
+        });
+    </script>
 </body>
 </html>
