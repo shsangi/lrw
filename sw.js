@@ -1,50 +1,27 @@
-const CACHE_NAME = 'reader-pwa-v1';
-const ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './reader_logo.jpeg'
-];
+const CACHE_NAME = 'reader-pwa-v2';
+const ASSETS = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 
-// Install: Cache files
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
   self.skipWaiting();
 });
 
-// Activate: Clean old caches
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
-    })
-  );
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))));
   self.clients.claim();
 });
 
-// Fetch: Cache first for local assets, network for Apps Script
-self.addEventListener('fetch', (e) => {
+self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
+  if (url.origin !== location.origin || e.request.method !== 'GET') return;
   
-  // Don't cache Apps Script requests (always hit network)
-  if (url.origin === 'https://script.google.com') {
-    return;
-  }
-
+  // Network First, falling back to cache
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      return cached || fetch(e.request).then((response) => {
-        // Cache new static assets
-        if (response.status === 200 && e.request.method === 'GET') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
-        }
-        return response;
-      });
-    })
+    fetch(e.request).then(res => {
+      const clone = res.clone();
+      caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });
